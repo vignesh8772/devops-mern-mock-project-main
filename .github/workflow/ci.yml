@@ -38,6 +38,7 @@ on :
 
     test :
       runs-on : ubuntu-latest 
+      needs : mongo-init
       
       steps : 
         - name : Checkout code 
@@ -47,14 +48,6 @@ on :
           with:
             node-version: '18'
             cache: 'npm'
-
-        - name : Wait for MongoDB to be ready
-          run : | 
-            until nc -z mongo 27017; do 
-              echo "Waiting for MongoDB to start..."; 
-              sleep 2; 
-            done
-              echo "MongoDB is up and running!"
 
         - name : Install backend dependencies and run tests
           working-directory : ./backend
