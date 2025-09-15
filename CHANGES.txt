@@ -1,0 +1,66 @@
+CHANGES - DevOps MERN Mock Project
+
+Overview
+- Added robust validation, safer error handling, and performance improvements for tasks API.
+- Standardized response formats to be more predictable while keeping the frontend compatible.
+
+Files Modified
+1) backend/models/Task.js
+2) backend/routes/tasks.js
+
+Details
+
+1) backend/models/Task.js
+- Enforced validation at the schema level for defense-in-depth:
+  - text: now includes trim: true and maxlength: 200.
+- Added an index for createdAt to speed up sorted listing queries:
+  - taskSchema.index({ createdAt: -1 })
+
+2) backend/routes/tasks.js
+- Introduced environment-aware error handling helper:
+  - sendError(): returns generic messages in production and detailed errors in non-production.
+
+- GET /api/tasks
+  - Implemented pagination with query params page and limit.
+    - Defaults: page=1, limit=50; hard cap: limit <= 100.
+  - Sorts by createdAt descending for consistent ordering.
+  - Uses .lean() to return plain objects for performance.
+  - Uses estimatedDocumentCount() for listing performance.
+  - Computes pages as 0 when total = 0 to correctly represent empty datasets.
+  - Standardized response shape:
+    {
+      tasks: [...],
+      meta: { total, page, limit, pages }
+    }
+
+- POST /api/tasks
+  - Content-Type validation expanded to support common +json variants.
+  - Validates input:
+    - text must be a string.
+    - Trims whitespace; rejects empty/blank values.
+    - Enforces max length of 200 characters.
+  - Standardized response shape:
+    { task: { ... } }
+  - Returns 201 Created on success.
+
+- DELETE /api/tasks/:id
+  - Validates ObjectId; returns 400 for invalid ids.
+  - Returns 404 if the task does not exist.
+  - Returns 204 No Content on successful deletion.
+
+API Behavior & Compatibility Notes
+- Frontend expects GET to return an object containing a tasks array; this remains true.
+- POST returns { task } but the frontend refetches after creation, so it remains compatible.
+- DELETE now returns 204 with no body; the frontend does not rely on the body and refetches after deletion.
+
+Rationale
+- Security: Prevent leaking internal errors, validate inputs thoroughly.
+- Correctness: Proper HTTP semantics (400/404/204) and accurate pagination metadata.
+- Performance: lean() for reads, estimatedDocumentCount() for lighter counts, indexed sorting.
+- Consistency: More predictable response shapes and standardized behaviors.
+
+Suggested Next Steps (not yet implemented)
+- Centralized error middleware at the app level to remove per-route try/catch.
+- Formal input validation using a library (e.g., express-validator or Joi).
+- Authentication/authorization controls if required for production.
+- Backend ESLint/Prettier setup to enforce consistent code style.
