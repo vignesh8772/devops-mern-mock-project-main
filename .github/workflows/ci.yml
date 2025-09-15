@@ -1,48 +1,64 @@
-name : MERN CI 
+name: MERN CI
 
-on : 
-  push : 
-    branches : 
-      - main 
-  job : 
-    mongo-init-test-also :
-      runs-on : ubuntu-latest 
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
-      env:
-        PORT : ${{ secrets.PORT }}
-        MONGO_URI : ${{ secrets.MONGO_URI }}
-        JWT_SECRET : ${{ secrets.JWT_SECRET }}
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
 
-      services : 
-        mongo : 
-          image : mongo:latest 
-          ports : 
-            - 27017:27017 
-          options : --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'" --health-interval 10s --health-timeout 5s --health-retries 5 
-      steps : 
-        - name : Checkout code 
-          uses : actions/checkout@v5
-        - name : setup Node.js
-          uses: actions/setup-node@v3
-          with:
-            node-version: '18'
-            cache: 'npm'
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
-        - name : Wait for MongoDB to be ready
-          run : | 
-            until nc -z mongo 27017; do 
-              echo "Waiting for MongoDB to start..."; 
-              sleep 2; 
-            done
-              echo "MongoDB is up and running!"
+    env:
+      NODE_ENV: test
+      PORT: 3000
+      MONGO_URI: mongodb://127.0.0.1:27017/mern_test
+      JWT_SECRET: testsecret
 
-        - name : seed MongoDB
-          working-directory : ./backend
-          run : |
-              npm install
-              npm run seedTaskData.js 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-        - name :  run tests
-          working-directory : ./backend
-          run : |
-              npm test        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Wait for MongoDB to be ready
+        shell: bash
+        run: |
+          for i in {1..30}; do
+            if nc -z 127.0.0.1 27017; then
+              echo "MongoDB is up!"; exit 0;
+            fi
+            echo "Waiting for MongoDB... ($i/30)"; sleep 2;
+          done
+          echo "MongoDB did not start in time"; exit 1
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Seed MongoDB
+        working-directory: ./backend
+        run: node seedTasksData.js
+
+      - name: Run backend tests
+        working-directory: ./backend
+        run: npm test
