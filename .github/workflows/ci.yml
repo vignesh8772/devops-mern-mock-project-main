@@ -49,8 +49,12 @@ on :
             node-version: '18'
             cache: 'npm'
 
-        - name : Install backend dependencies and run tests
+        - name : Install backend dependencies 
           working-directory : ./backend
           run : |
               npm install
-              npm test 
+             
+        - name :  run tests
+          working-directory : ./backend
+          run : |
+              npm test       
